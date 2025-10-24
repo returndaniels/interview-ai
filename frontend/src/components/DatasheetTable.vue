@@ -244,9 +244,20 @@ const formatCellValue = (value) => {
   max-width: 400px;
 }
 
-.th div.p-column-header-content,.search-field {
-    display: inline-flex;
-    gap: 0.5rem;
+.search-field {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+/* Espaçamento entre nome da coluna e ícone de ordenação */
+:deep(.p-column-header-content) {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+:deep(.p-sortable-column-icon) {
+  margin-left: 0.25rem;
 }
 
 .table-info {
@@ -333,6 +344,15 @@ const formatCellValue = (value) => {
 
 .page-size-control label {
   color: #666;
+}
+
+/* Espaçamento entre colunas */
+:deep(.p-datatable .p-datatable-thead > tr > th) {
+  padding: 1rem;
+}
+
+:deep(.p-datatable .p-datatable-tbody > tr > td) {
+  padding: 0.75rem 1rem;
 }
 
 /* Responsivo */
