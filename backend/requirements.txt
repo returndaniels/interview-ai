@@ -1,0 +1,17 @@
+# Framework Web
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Variáveis de Ambiente
+python-dotenv
+
+# Processamento de Excel
+openpyxl       # Arquivos .xlsx (Excel 2007+)
+pandas         # Processamento de dados
+
+# Database
+mysql-connector-python
+
+# OpenAI API
+openai
