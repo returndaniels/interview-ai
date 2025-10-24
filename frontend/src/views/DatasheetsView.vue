@@ -338,4 +338,19 @@ const formatTableName = (tableName) => {
   gap: 0.5rem;
   margin-top: 1rem;
 }
+
+/* Espaçamento entre as abas */
+:deep(.p-tabview-nav li) {
+  margin-right: 0.5rem;
+}
+
+:deep(.p-tabview-nav li:last-child) {
+  margin-right: 0;
+}
+
+/* Estilo das abas */
+:deep(.p-tabview-nav li .p-tabview-nav-link) {
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px 8px 0 0;
+}
 </style>
