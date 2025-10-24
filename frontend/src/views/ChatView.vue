@@ -68,6 +68,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { getToken } from '../api/client'
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
 
@@ -182,8 +183,12 @@ const sendQuestion = () => {
     text: question.value,
   })
 
-  // Envia pergunta pelo WebSocket
-  ws.send(JSON.stringify({ question: question.value }))
+  // Envia pergunta pelo WebSocket com token
+  const token = getToken()
+  ws.send(JSON.stringify({ 
+    question: question.value,
+    token: token 
+  }))
 
   isProcessing.value = true
   processingStatus.value = 'Processando...'

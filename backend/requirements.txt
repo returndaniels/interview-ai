@@ -16,6 +16,10 @@ mysql-connector-python
 # OpenAI API
 openai
 
+# Autenticação e Segurança
+bcrypt         # Hash de senhas
+PyJWT          # JSON Web Tokens
+
 # Testing
 pytest
 httpx  # Necessário para testes async do FastAPI

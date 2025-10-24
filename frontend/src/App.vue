@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <nav class="navbar">
+    <nav v-if="isAuthenticated" class="navbar">
       <div class="container">
         <div class="nav-brand">
           <i class="pi pi-database"></i>
@@ -15,6 +15,10 @@
             <i class="pi pi-table"></i>
             Datasheets
           </router-link>
+          <button @click="handleLogout" class="nav-link logout-button">
+            <i class="pi pi-sign-out"></i>
+            Logout
+          </button>
         </div>
       </div>
     </nav>
@@ -26,6 +30,21 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { getToken, logout } from './api/client'
+
+const route = useRoute()
+
+const isAuthenticated = computed(() => {
+  return route.path !== '/auth' && getToken() !== null
+})
+
+const handleLogout = () => {
+  if (confirm('Tem certeza que deseja sair?')) {
+    logout()
+  }
+}
 </script>
 
 <style scoped>
@@ -77,6 +96,18 @@
 
 .nav-link.router-link-active {
   background: rgba(255, 255, 255, 0.3);
+}
+
+.logout-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+}
+
+.logout-button:hover {
+  background: rgba(255, 0, 0, 0.3);
 }
 
 main {

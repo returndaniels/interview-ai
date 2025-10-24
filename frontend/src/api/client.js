@@ -9,11 +9,43 @@ const api = axios.create({
   },
 })
 
-// Interceptor para logging de erros
+// Helper para obter o token dos cookies
+export const getToken = () => {
+  const value = `; ${document.cookie}`
+  const parts = value.split(`; token=`)
+  if (parts.length === 2) return parts.pop().split(';').shift()
+  return null
+}
+
+// Helper para remover o token
+export const removeToken = () => {
+  document.cookie = 'token=; path=/; max-age=0'
+}
+
+// Interceptor para adicionar token em todas as requisições
+api.interceptors.request.use(
+  (config) => {
+    const token = getToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
+// Interceptor para logging de erros e tratamento de autenticação
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error('API Error:', error.response?.data || error.message)
+    
+    // Se retornar 401, redireciona para login
+    if (error.response?.status === 401) {
+      removeToken()
+      window.location.href = '/auth'
+    }
+    
     return Promise.reject(error)
   }
 )
@@ -59,4 +91,26 @@ export const queryData = async (question) => {
     params: { question },
   })
   return data
+}
+
+// Funções de Autenticação
+
+export const register = async (username, password) => {
+  const { data } = await api.post('/auth/register', { username, password })
+  return data
+}
+
+export const login = async (username, password) => {
+  const { data } = await api.post('/auth/login', { username, password })
+  return data
+}
+
+export const getMe = async () => {
+  const { data } = await api.get('/auth/me')
+  return data
+}
+
+export const logout = () => {
+  removeToken()
+  window.location.href = '/auth'
 }

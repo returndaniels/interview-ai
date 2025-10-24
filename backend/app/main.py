@@ -1,8 +1,10 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from .controllers import import_excel_to_database, get_tables, generate_answer, get_table_data_paginated
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from .controllers import import_excel_to_database, get_tables, generate_answer, get_table_data_paginated, register_user, login_user, get_current_user
 from .utils import sanitize_sql_name
 from .database import get_db_connection, get_db_cursor
+from pydantic import BaseModel
 import os
 import json
 
@@ -25,6 +27,28 @@ app.add_middleware(
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# Security
+security = HTTPBearer()
+
+# Modelos Pydantic
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+# Dependency para autenticação
+async def get_current_user_dep(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Dependency que valida o token e retorna o usuário"""
+    token = credentials.credentials
+    username = get_current_user(token)
+    if not username:
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+    return username
+
 
 @app.get("/")
 async def root():
@@ -33,6 +57,66 @@ async def root():
         "message": "Interview AI - Datasheet Importer API",
         "status": "running",
         "docs": "/docs"
+    }
+
+
+@app.post("/auth/register")
+async def register(request: RegisterRequest):
+    """
+    Registra um novo usuário
+    
+    Args:
+        username: Nome de usuário único (uma única palavra)
+        password: Senha (mínimo 6 caracteres)
+    
+    Returns:
+        {
+            "success": true,
+            "message": "Usuário criado com sucesso",
+            "token": "jwt_token",
+            "username": "username"
+        }
+    """
+    result = register_user(request.username, request.password)
+    
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+
+@app.post("/auth/login")
+async def login(request: LoginRequest):
+    """
+    Autentica um usuário
+    
+    Args:
+        username: Nome de usuário
+        password: Senha
+    
+    Returns:
+        {
+            "success": true,
+            "message": "Login realizado com sucesso",
+            "token": "jwt_token",
+            "username": "username"
+        }
+    """
+    result = login_user(request.username, request.password)
+    
+    if not result["success"]:
+        raise HTTPException(status_code=401, detail=result["error"])
+    
+    return result
+
+
+@app.get("/auth/me")
+async def get_me(current_user: str = Depends(get_current_user_dep)):
+    """
+    Retorna informações do usuário autenticado
+    """
+    return {
+        "username": current_user
     }
 
 
@@ -54,7 +138,11 @@ async def health_check():
 
 
 @app.post("/upload/excel")
-async def upload_excel(file: UploadFile = File(...), table_name: str = None):
+async def upload_excel(
+    file: UploadFile = File(...),
+    table_name: str = None,
+    current_user: str = Depends(get_current_user_dep)
+):
     """
     Upload e importação de arquivos Excel (XLSX ou XLS) para o banco de dados
     
@@ -88,7 +176,7 @@ async def upload_excel(file: UploadFile = File(...), table_name: str = None):
 
 
 @app.get("/tables")
-async def list_tables():
+async def list_tables(current_user: str = Depends(get_current_user_dep)):
     """Lista todas as tabelas de datasheets (prefixo datasheet_)"""
     try:
         datasheet_tables = get_tables()
@@ -111,7 +199,8 @@ async def get_table_data(
     page_size: int = 50,
     search: str = None,
     sort_by: str = None,
-    sort_order: str = "asc"
+    sort_order: str = "asc",
+    current_user: str = Depends(get_current_user_dep)
 ):
     """
     Retorna os dados de uma tabela com paginação e filtros
@@ -168,7 +257,10 @@ async def get_table_data(
 
 
 @app.post("/query")
-async def query_multi_table(question: str):
+async def query_multi_table(
+    question: str,
+    current_user: str = Depends(get_current_user_dep)
+):
     """
     Gera e executa uma query SQL baseada na pergunta do usuário
     Suporta MÚLTIPLAS TABELAS e JOINs automáticos
@@ -233,6 +325,12 @@ async def query_multi_websocket(websocket: WebSocket):
     """
     WebSocket para queries SQL com suporte a MÚLTIPLAS TABELAS e JOINs
     
+    Autenticação: Envie o token no primeiro mensagem como:
+    {
+        "token": "jwt_token",
+        "question": "sua pergunta"
+    }
+    
     O cliente envia:
     {
         "question": "Qual a média de vendas por categoria?"
@@ -254,17 +352,43 @@ async def query_multi_websocket(websocket: WebSocket):
     """
     await websocket.accept()
     
+    authenticated = False
+    current_user = None
+    
     try:
         # Envia confirmação de conexão
         await websocket.send_json({
             "type": "connected",
-            "message": "Conectado! Envie sua pergunta."
+            "message": "Conectado! Envie sua pergunta com o token de autenticação."
         })
         
         # Loop de perguntas
         while True:
             data = await websocket.receive_text()
             message_data = json.loads(data)
+            
+            # Verifica autenticação na primeira mensagem ou se token fornecido
+            if not authenticated or "token" in message_data:
+                token = message_data.get("token", "")
+                if not token:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Token de autenticação não fornecido"
+                    })
+                    continue
+                
+                username = get_current_user(token)
+                if not username:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Token inválido ou expirado"
+                    })
+                    await websocket.close()
+                    return
+                
+                authenticated = True
+                current_user = username
+            
             question = message_data.get("question", "")
             
             if not question:
