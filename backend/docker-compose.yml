@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: interview-ai-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Volume para hot-reload durante desenvolvimento
+      - ./:/app
+      # Volume para uploads de arquivos Excel
+      - uploads_data:/app/uploads
+    environment:
+      - DATABASE_URL=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@mariadb:3306/interview_ai
+      - ENVIRONMENT=development
+    depends_on:
+      - mariadb
+    networks:
+      - my_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mariadb:
+    image: mariadb:latest
+    container_name: interview-ai-mariadb
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_DATABASE: interview_ai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - mariadb_logs:/var/lib/mysql/logs
+    networks:
+      - my_network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  mariadb_data:
+  mariadb_logs:
+  uploads_data:
+
+networks:
+  my_network:
+    driver: bridge
