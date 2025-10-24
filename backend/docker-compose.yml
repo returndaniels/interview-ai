@@ -16,13 +16,14 @@ services:
       - uploads_data:/app/uploads
     environment:
       - DATABASE_URL=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@mariadb:3306/interview_ai
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ENVIRONMENT=development
     depends_on:
       - mariadb
     networks:
       - my_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -42,6 +43,7 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql
       - mariadb_logs:/var/lib/mysql/logs
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - my_network
     healthcheck:
