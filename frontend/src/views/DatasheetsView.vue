@@ -66,7 +66,7 @@
           />
         </div>
 
-        <div class="form-field">
+        <!-- <div class="form-field">
           <label for="tableName">Nome da Tabela (opcional)</label>
           <InputText
             id="tableName"
@@ -74,7 +74,7 @@
             placeholder="Deixe vazio para usar o nome do arquivo"
             style="padding: 0.5rem; width: 100%"
           />
-        </div>
+        </div> -->
 
         <div v-if="uploadError" class="upload-error">
           <i class="pi pi-exclamation-circle"></i>

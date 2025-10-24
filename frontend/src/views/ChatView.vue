@@ -145,6 +145,8 @@ const handleWebSocketMessage = (data) => {
 
     case 'response':
       isProcessing.value = false
+      console.log('DEBUG - Received response:', data)
+      console.log('DEBUG - sql_query value:', data.sql_query)
       messages.value.push({
         type: 'assistant',
         text: data.humanized_response,

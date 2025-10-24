@@ -41,8 +41,11 @@ def validate_sql_query(query: str) -> tuple[bool, str]:
     if not clean_query.startswith('SELECT'):
         return False, "Query deve começar com SELECT"
     
-    # Verifica se tem múltiplos statements (;)
-    if clean_query.count(';') > 1:
+    # Remove ponto-e-vírgula final antes de validar
+    clean_query_no_semicolon = clean_query.rstrip(';').strip()
+    
+    # Verifica se tem múltiplos statements (mais de um ;)
+    if ';' in clean_query_no_semicolon:
         return False, "Múltiplas queries não são permitidas"
     
     # SEGURANÇA: Verifica se só acessa tabelas com prefixo datasheet_
@@ -100,13 +103,15 @@ IMPORTANTE - SEGURANÇA:
 - NUNCA use procedimentos armazenados, EXEC, CALL ou funções que alterem estado
 - ACESSE APENAS tabelas com prefixo 'datasheet_' - NUNCA acesse outras tabelas do banco
 - Todas as tabelas disponíveis começam com 'datasheet_' - use apenas estas
+- GERE APENAS UMA ÚNICA QUERY - NUNCA múltiplas queries separadas por ponto e vírgula
 
 TABELAS DISPONÍVEIS (todas começam com 'datasheet_'):
 {tables_description}
 
 INSTRUÇÕES:
 - Use APENAS as tabelas listadas acima (todas com prefixo datasheet_)
-- Use JOINs quando necessário para cruzar dados de múltiplas tabelas
+- Gere APENAS UMA query SQL - se precisar consultar múltiplas tabelas sem relacionamento, use UNION ALL
+- Use JOINs quando necessário para cruzar dados de múltiplas tabelas com relacionamento
 - Identifique automaticamente as colunas de relacionamento para JOINs
 - Use aliases de tabela (t1, t2, etc) para melhor legibilidade
 - Use funções de agregação quando apropriado (COUNT, SUM, AVG, MAX, MIN)
@@ -114,6 +119,7 @@ INSTRUÇÕES:
 - Use LIMIT para prevenir retornos muito grandes (máximo 1000 linhas)
 - Retorne APENAS a query SQL, sem explicações adicionais no corpo da query
 - Use backticks (`) para nomes de tabelas e colunas
+- Para visualizar dados de múltiplas tabelas independentes, use UNION ALL com uma coluna indicando a tabela
 """
 
     user_prompt = f"""Gere uma query SQL SELECT para responder a seguinte pergunta:
@@ -121,7 +127,9 @@ INSTRUÇÕES:
 "{user_question}"
 
 IMPORTANTE:
-- Retorne APENAS a query SQL pura, sem markdown, sem ```sql```, sem explicações
+- Retorne APENAS UMA ÚNICA QUERY SQL - nunca múltiplas queries separadas
+- Se precisar consultar múltiplas tabelas sem relacionamento, use UNION ALL
+- Não use markdown, não use ```sql```, não adicione explicações na query
 - A query deve ser executável diretamente no MySQL/MariaDB
 - Se precisar cruzar tabelas, identifique as colunas de relacionamento e use JOIN apropriado
 - Se não souber qual coluna usar para JOIN, tente identificar colunas com nomes semelhantes ou use CROSS JOIN se apropriado
@@ -151,7 +159,7 @@ IMPORTANTE:
         
         if not is_valid:
             return {
-                "query": None,
+                "sql_query": sql_query,
                 "explanation": None,
                 "tables_used": [],
                 "error": f"Query inválida ou insegura: {error_msg}"

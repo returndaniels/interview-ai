@@ -289,7 +289,8 @@ async def query_multi_websocket(websocket: WebSocket):
                 await websocket.send_json({
                     "type": "error",
                     "error_type": result["error_type"],
-                    "message": result["error"]
+                    "message": result["error"],
+                    "sql_query": result["sql_query"]
                 })
                 await websocket.send_json({
                     "type": "end"
@@ -297,6 +298,10 @@ async def query_multi_websocket(websocket: WebSocket):
                 continue
             
             # Sucesso - envia resposta final
+            # DEBUG: Log para verificar se sql_query está presente
+            print(f"DEBUG - sql_query value: {result['sql_query']}")
+            print(f"DEBUG - Full result: {result}")
+            
             await websocket.send_json({
                 "type": "response",
                 "question": result["question"],

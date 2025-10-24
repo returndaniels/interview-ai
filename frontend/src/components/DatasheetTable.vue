@@ -3,7 +3,7 @@
     <!-- Filtros -->
     <div class="table-controls">
       <div class="search-box">
-        <span class="p-input-icon-left">
+        <span class="p-input-icon-left search-field">
           <i class="pi pi-search" />
           <InputText
             v-model="searchTerm"
@@ -51,6 +51,7 @@
           :field="col"
           :header="formatColumnName(col)"
           :sortable="true"
+          class="th"
         >
           <template #body="{ data }">
             {{ formatCellValue(data[col]) }}
@@ -241,6 +242,11 @@ const formatCellValue = (value) => {
 .search-box {
   flex: 1;
   max-width: 400px;
+}
+
+.th div.p-column-header-content,.search-field {
+    display: inline-flex;
+    gap: 0.5rem;
 }
 
 .table-info {
