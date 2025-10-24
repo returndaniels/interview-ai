@@ -56,7 +56,7 @@
 
 .nav-links {
   display: flex;
-  gap: 2rem;
+  gap: 0.5rem;
 }
 
 .nav-link {
@@ -65,7 +65,7 @@
   gap: 0.5rem;
   color: white;
   text-decoration: none;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem;
   border-radius: 8px;
   transition: all 0.3s ease;
   font-weight: 500;

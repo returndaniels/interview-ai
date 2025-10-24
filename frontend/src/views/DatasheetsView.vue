@@ -49,9 +49,10 @@
     <!-- Dialog de Upload -->
     <Dialog
       v-model:visible="showUploadDialog"
-      header="Upload Datasheet"
+      header=" Upload Datasheet"
       :modal="true"
-      :style="{ width: '500px' }"
+      class="upload-dialog"
+      style="max-width: 500px"
     >
       <div class="upload-form">
         <div class="form-field">
@@ -71,6 +72,7 @@
             id="tableName"
             v-model="tableName"
             placeholder="Deixe vazio para usar o nome do arquivo"
+            style="padding: 0.5rem; width: 100%"
           />
         </div>
 
@@ -90,7 +92,7 @@
           label="Cancelar"
           icon="pi pi-times"
           @click="closeUploadDialog"
-          class="p-button-text"
+          class="p-button-text function-button"
         />
         <Button
           label="Upload"
@@ -98,6 +100,8 @@
           @click="uploadFile"
           :loading="uploading"
           :disabled="!selectedFile"
+          class="function-button"
+          style="margin-right: 1rem"
         />
       </template>
     </Dialog>
@@ -277,8 +281,14 @@ const formatTableName = (tableName) => {
     padding: 1rem;
 }
 
+.upload-dialog {
+    width: 100%;
+    max-width: 500px;
+    padding: 1rem;
+}
+
 .upload-form {
-  padding: 1rem 0;
+  padding: 1rem;
 }
 
 .form-field {
@@ -298,6 +308,13 @@ const formatTableName = (tableName) => {
   border: 2px dashed #ddd;
   border-radius: 8px;
   cursor: pointer;
+}
+
+.function-button {
+    display: inline-flex;
+    gap: 0.5rem;
+    padding: 0.2rem;
+    margin-bottom: 1rem;
 }
 
 .upload-error {

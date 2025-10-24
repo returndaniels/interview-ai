@@ -30,9 +30,9 @@ def get_db_connection():
 
 def get_db_cursor(connection):
     """
-    Retorna um cursor da conexão fornecida.
+    Retorna um cursor da conexão fornecida (dictionary cursor).
     """
-    return connection.cursor()
+    return connection.cursor(dictionary=True)
 
 
 def close_db_connection(connection, cursor=None):

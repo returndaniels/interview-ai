@@ -70,11 +70,14 @@ async def upload_excel(file: UploadFile = File(...), table_name: str = None):
         )
     
     try:
-        result, message = import_excel_to_database(file.file, table_name)
+        # Await na função assíncrona e passa o UploadFile completo
+        result = await import_excel_to_database(file, table_name)
+        
         return {
             "success": True,
-            "message": message,
-            "details": result
+            "message": f"Tabela '{result['table_name']}' importada com sucesso!",
+            "table_name": result['table_name'],
+            "rows_imported": result.get('rows_imported', 0)
         }
     
     except Exception as e:

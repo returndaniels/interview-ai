@@ -47,13 +47,13 @@ def create_table_from_dataframe(cursor, table_name, df):
     cursor.execute(create_table_query)
 
 
-async def import_excel_to_database(upload_file: UploadFile, table_name: str):
+async def import_excel_to_database(upload_file: UploadFile, table_name: str = None):
     """
     Importa um arquivo Excel (UploadFile do FastAPI) para o banco de dados MariaDB.
     
     Args:
         upload_file: Objeto UploadFile do FastAPI contendo o arquivo Excel
-        table_name: Nome da tabela a ser criada
+        table_name: Nome da tabela a ser criada (opcional, usa nome do arquivo se None)
     
     Returns:
         dict: Informações sobre a importação
@@ -66,6 +66,13 @@ async def import_excel_to_database(upload_file: UploadFile, table_name: str):
         contents = await upload_file.read()
         file_like = io.BytesIO(contents)
         
+        # Se table_name não fornecido, usa o nome do arquivo
+        if not table_name:
+            table_name = upload_file.filename.rsplit('.', 1)[0]  # Remove extensão
+        
+        # Sanitiza o nome da tabela
+        table_name = sanitize_sql_name(table_name)
+        
         # Conecta ao banco
         connection = get_db_connection()
         cursor = get_db_cursor(connection)
@@ -75,11 +82,19 @@ async def import_excel_to_database(upload_file: UploadFile, table_name: str):
         
         # Processa o arquivo em chunks
         for chunk_df in read_excel_in_chunks(file_like):
+            # Substitui colunas com nomes vazios ou NaN por nomes genéricos
+            chunk_df.columns = [str(col) if pd.notna(col) and str(col).strip() != '' else f'column_{i}' 
+                               for i, col in enumerate(chunk_df.columns)]
+            
             # Cria a tabela apenas no primeiro chunk
             if first_chunk:
                 create_table_from_dataframe(cursor, table_name, chunk_df)
                 connection.commit()
                 first_chunk = False
+            
+            # Substitui todos os tipos de NaN/None por NULL antes de inserir
+            chunk_df = chunk_df.replace({pd.NA: None, pd.NaT: None})
+            chunk_df = chunk_df.where(pd.notnull(chunk_df), None)
             
             # Insere os dados
             sanitized_columns = [sanitize_sql_name(col) for col in chunk_df.columns]
@@ -96,15 +111,12 @@ async def import_excel_to_database(upload_file: UploadFile, table_name: str):
             
             total_rows += len(chunk_df)
 
-        _dict = {
+        return {
             "success": True,
-            "table_name": f"{prefixed_table_name}",
+            "table_name": prefixed_table_name,
             "rows_imported": total_rows,
             "filename": upload_file.filename
         }
-        message = f"Importação concluída: {total_rows} linhas inseridas na tabela '{prefixed_table_name}'"
-        
-        return _dict, message
         
     except Exception as e:
         if connection:
@@ -180,7 +192,8 @@ def get_table_data_paginated(
         sort_order = "asc"
     
     try:
-        cursor = get_db_cursor()
+        connection = get_db_connection()
+        cursor = get_db_cursor(connection)
         
         # Verifica se a tabela existe
         cursor.execute("""
@@ -192,6 +205,7 @@ def get_table_data_paginated(
         
         if cursor.fetchone()["count"] == 0:
             cursor.close()
+            connection.close()
             return False, {
                 "error": f"Tabela '{table_name}' não encontrada",
                 "error_type": "not_found"
@@ -236,7 +250,10 @@ def get_table_data_paginated(
         cursor.execute(data_query, params + [page_size, offset])
         
         data = cursor.fetchall()
+        
+        # Fecha conexão e cursor
         cursor.close()
+        connection.close()
         
         return True, {
             "table_name": table_name,
