@@ -1,7 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from .controllers import import_excel_to_database, get_tables, generate_answer
-from .database import get_db_connection
+from .controllers import import_excel_to_database, get_tables, generate_answer, get_table_data_paginated
+from .utils import sanitize_sql_name
+from .database import get_db_connection, get_db_cursor
 import os
 import json
 
@@ -98,6 +99,69 @@ async def list_tables():
             status_code=500,
             detail=f"Erro ao listar tabelas: {str(e)}"
         )
+
+
+@app.get("/tables/{table_name}/data")
+async def get_table_data(
+    table_name: str,
+    page: int = 1,
+    page_size: int = 50,
+    search: str = None,
+    sort_by: str = None,
+    sort_order: str = "asc"
+):
+    """
+    Retorna os dados de uma tabela com paginação e filtros
+    
+    Args:
+        table_name: Nome da tabela (deve começar com datasheet_)
+        page: Número da página (inicia em 1)
+        page_size: Quantidade de registros por página (máximo 100)
+        search: Termo de busca (busca em todas as colunas de texto)
+        sort_by: Nome da coluna para ordenação
+        sort_order: Ordem de classificação (asc ou desc)
+    
+    Returns:
+        {
+            "table_name": "datasheet_vendas",
+            "data": [...],
+            "pagination": {
+                "page": 1,
+                "page_size": 50,
+                "total_records": 1000,
+                "total_pages": 20
+            },
+            "columns": ["id", "nome", "valor"]
+        }
+    """
+    
+    # Usa o controller para buscar os dados
+    success, result = get_table_data_paginated(
+        table_name=table_name,
+        page=page,
+        page_size=page_size,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
+    
+    # Se houve erro, lança HTTPException apropriada
+    if not success:
+        error_type = result.get("error_type", "internal")
+        error_msg = result.get("error", "Erro desconhecido")
+        
+        # Define status code baseado no tipo de erro
+        status_code_map = {
+            "validation": 403,   # Forbidden (acesso negado)
+            "not_found": 404,    # Not Found
+            "database": 500,     # Internal Server Error
+        }
+        
+        status_code = status_code_map.get(error_type, 500)
+        raise HTTPException(status_code=status_code, detail=error_msg)
+    
+    # Retorna resultado de sucesso
+    return result
 
 
 @app.post("/query")

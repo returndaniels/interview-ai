@@ -113,3 +113,145 @@ async def import_excel_to_database(upload_file: UploadFile, table_name: str):
         
     finally:
         close_db_connection(connection, cursor)
+
+
+def get_table_data_paginated(
+    table_name: str,
+    page: int = 1,
+    page_size: int = 50,
+    search: str = None,
+    sort_by: str = None,
+    sort_order: str = "asc"
+):
+    """
+    Retorna os dados de uma tabela com paginação e filtros
+    
+    Args:
+        table_name: Nome da tabela (deve começar com datasheet_)
+        page: Número da página (inicia em 1)
+        page_size: Quantidade de registros por página (máximo 100)
+        search: Termo de busca (busca em todas as colunas de texto)
+        sort_by: Nome da coluna para ordenação
+        sort_order: Ordem de classificação (asc ou desc)
+    
+    Returns:
+        Tupla (success: bool, result: dict)
+        
+        Em caso de sucesso:
+        {
+            "table_name": "datasheet_vendas",
+            "data": [...],
+            "pagination": {
+                "page": 1,
+                "page_size": 50,
+                "total_records": 1000,
+                "total_pages": 20
+            },
+            "columns": ["id", "nome", "valor"]
+        }
+        
+        Em caso de erro:
+        {
+            "error": "mensagem de erro",
+            "error_type": "validation|not_found|database"
+        }
+    """
+    
+    # Validação: tabela deve começar com datasheet_
+    if not table_name.startswith("datasheet_"):
+        return False, {
+            "error": "Acesso negado. Apenas tabelas com prefixo 'datasheet_' são permitidas.",
+            "error_type": "validation"
+        }
+    
+    # Sanitiza o nome da tabela
+    safe_table_name = sanitize_sql_name(table_name)
+    
+    # Validação de paginação
+    if page < 1:
+        page = 1
+    if page_size < 1:
+        page_size = 50
+    if page_size > 100:
+        page_size = 100
+    
+    # Validação de sort_order
+    if sort_order.lower() not in ["asc", "desc"]:
+        sort_order = "asc"
+    
+    try:
+        cursor = get_db_cursor()
+        
+        # Verifica se a tabela existe
+        cursor.execute("""
+            SELECT COUNT(*) as count 
+            FROM information_schema.tables 
+            WHERE table_schema = DATABASE() 
+            AND table_name = %s
+        """, (table_name,))
+        
+        if cursor.fetchone()["count"] == 0:
+            cursor.close()
+            return False, {
+                "error": f"Tabela '{table_name}' não encontrada",
+                "error_type": "not_found"
+            }
+        
+        # Obtém as colunas da tabela
+        cursor.execute(f"DESCRIBE `{safe_table_name}`")
+        columns = [col["Field"] for col in cursor.fetchall()]
+        
+        # Monta a query base
+        base_query = f"FROM `{safe_table_name}`"
+        where_clause = ""
+        params = []
+        
+        # Adiciona filtro de busca se fornecido
+        if search:
+            # Busca em todas as colunas de texto
+            search_conditions = []
+            for col in columns:
+                search_conditions.append(f"`{sanitize_sql_name(col)}` LIKE %s")
+            
+            where_clause = f" WHERE ({' OR '.join(search_conditions)})"
+            params = [f"%{search}%"] * len(columns)
+        
+        # Conta total de registros
+        count_query = f"SELECT COUNT(*) as total {base_query} {where_clause}"
+        cursor.execute(count_query, params)
+        total_records = cursor.fetchone()["total"]
+        
+        # Calcula total de páginas
+        total_pages = (total_records + page_size - 1) // page_size
+        
+        # Monta query de dados com paginação
+        offset = (page - 1) * page_size
+        
+        order_clause = ""
+        if sort_by and sort_by in columns:
+            safe_sort_by = sanitize_sql_name(sort_by)
+            order_clause = f" ORDER BY `{safe_sort_by}` {sort_order.upper()}"
+        
+        data_query = f"SELECT * {base_query} {where_clause} {order_clause} LIMIT %s OFFSET %s"
+        cursor.execute(data_query, params + [page_size, offset])
+        
+        data = cursor.fetchall()
+        cursor.close()
+        
+        return True, {
+            "table_name": table_name,
+            "data": data,
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total_records": total_records,
+                "total_pages": total_pages
+            },
+            "columns": columns
+        }
+        
+    except Exception as e:
+        return False, {
+            "error": f"Erro ao buscar dados da tabela: {str(e)}",
+            "error_type": "database"
+        }
