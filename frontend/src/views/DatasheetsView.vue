@@ -6,7 +6,7 @@
         <p>Visualize e gerencie seus datasheets importados</p>
       </div>
       <Button
-        label="Upload Datasheet"
+        label="Upload"
         icon="pi pi-upload"
         @click="showUploadDialog = true"
         class="p-button-success upload-button"
@@ -203,6 +203,16 @@ const formatTableName = (tableName) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.datasheets-header > div {
+    flex: 1;
+    min-width: 336px;
+}
+
+.datasheets-header > .upload-button {
+    margin-left: auto;
 }
 
 .datasheets-header h1 {
@@ -264,7 +274,7 @@ const formatTableName = (tableName) => {
 .upload-button {
     display: inline-flex;
     gap: 0.5rem;
-    padding: 1rem 2rem;
+    padding: 1rem;
 }
 
 .upload-form {
