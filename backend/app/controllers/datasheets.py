@@ -4,6 +4,7 @@ from ..utils import sanitize_sql_name, get_sql_type
 from ..database import get_db_connection, get_db_cursor, close_db_connection
 
 import pandas as pd
+import numpy as np
 import io
 
 def get_tables():
@@ -83,8 +84,14 @@ async def import_excel_to_database(upload_file: UploadFile, table_name: str = No
         # Processa o arquivo em chunks
         for chunk_df in read_excel_in_chunks(file_like):
             # Substitui colunas com nomes vazios ou NaN por nomes genéricos
-            chunk_df.columns = [str(col) if pd.notna(col) and str(col).strip() != '' else f'column_{i}' 
-                               for i, col in enumerate(chunk_df.columns)]
+            new_columns = []
+            for i, col in enumerate(chunk_df.columns):
+                # Verifica se é NaN ou vazio
+                if pd.isna(col) or str(col).strip() == '' or str(col).lower() == 'nan':
+                    new_columns.append(f'column_{i}')
+                else:
+                    new_columns.append(str(col))
+            chunk_df.columns = new_columns
             
             # Cria a tabela apenas no primeiro chunk
             if first_chunk:
@@ -93,7 +100,8 @@ async def import_excel_to_database(upload_file: UploadFile, table_name: str = No
                 first_chunk = False
             
             # Substitui todos os tipos de NaN/None por NULL antes de inserir
-            chunk_df = chunk_df.replace({pd.NA: None, pd.NaT: None})
+            # Inclui float('nan') e a string 'nan' também
+            chunk_df = chunk_df.replace({pd.NA: None, pd.NaT: None, np.nan: None, 'nan': None, 'NaN': None, 'NAN': None})
             chunk_df = chunk_df.where(pd.notnull(chunk_df), None)
             
             # Insere os dados
